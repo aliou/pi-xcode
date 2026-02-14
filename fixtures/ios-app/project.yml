@@ -1,0 +1,77 @@
+name: PiXcodeTestApp
+options:
+  bundleIdPrefix: dev.378labs.pixcode
+  deploymentTarget:
+    iOS: "26.0"
+  xcodeVersion: "26.0"
+  createIntermediateGroups: true
+
+configFiles:
+  Debug: Config/Debug.xcconfig
+  Release: Config/Release.xcconfig
+
+settings:
+  base:
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+
+targets:
+  PiXcodeTestApp:
+    type: application
+    platform: iOS
+    supportedDestinations: [iOS]
+    sources:
+      - Sources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.378labs.pixcode.testapp
+        PRODUCT_NAME: PiXcodeTest
+        GENERATE_INFOPLIST_FILE: true
+        IPHONEOS_DEPLOYMENT_TARGET: "26.0"
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    info:
+      path: Sources/Info.plist
+      properties:
+        UILaunchScreen: {}
+
+  PiXcodeTestApp UITests:
+    type: bundle.ui-testing
+    platform: iOS
+    supportedDestinations: [iOS]
+    sources:
+      - UITests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.378labs.pixcode.testapp.uitests
+        IPHONEOS_DEPLOYMENT_TARGET: "26.0"
+        TARGETED_DEVICE_FAMILY: "1"
+        GENERATE_INFOPLIST_FILE: true
+    dependencies:
+      - target: PiXcodeTestApp
+
+schemes:
+  PiXcodeTestApp:
+    build:
+      targets:
+        PiXcodeTestApp: all
+    run:
+      config: Debug
+    profile:
+      config: Release
+    archive:
+      config: Release
+
+  PiXcodeTestApp UITests:
+    build:
+      targets:
+        PiXcodeTestApp: all
+        PiXcodeTestApp UITests: [testing]
+    test:
+      config: Debug
+      targets:
+        - PiXcodeTestApp UITests
+      environmentVariables:
+        UI_AUTOMATION_PAYLOAD_PATH: $(UI_AUTOMATION_PAYLOAD_PATH)
+        UI_AUTOMATION_RESULT_PATH: $(UI_AUTOMATION_RESULT_PATH)
+        UI_AUTOMATION_PAYLOAD_JSON: $(UI_AUTOMATION_PAYLOAD_JSON)
