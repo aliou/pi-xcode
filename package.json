@@ -4,6 +4,12 @@
   "description": "Xcode development tools for Pi",
   "type": "module",
   "license": "MIT",
+  "private": false,
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "pi"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/aliou/pi-xcode"
@@ -11,14 +17,10 @@
   "publishConfig": {
     "access": "public"
   },
-  "scripts": {
-    "check": "biome check && tsc --noEmit",
-    "typecheck": "tsc --noEmit",
-    "lint": "biome check",
-    "format": "biome check --write",
-    "check:lockfile": "pnpm install --frozen-lockfile --ignore-scripts",
-    "prepare": "husky"
-  },
+  "files": [
+    "src",
+    "README.md"
+  ],
   "pi": {
     "extensions": [
       "./src/index.ts"
@@ -27,16 +29,38 @@
       "skills"
     ]
   },
-  "peerDependencies": {
-    "@mariozechner/pi-ai": ">=0.52.8",
-    "@mariozechner/pi-coding-agent": ">=0.52.8",
-    "@sinclair/typebox": "^0.34.48"
-  },
   "dependencies": {
     "@aliou/pi-utils-settings": "^0.5.1"
   },
+  "peerDependencies": {
+    "@mariozechner/pi-ai": ">=0.52.8",
+    "@mariozechner/pi-coding-agent": ">=0.52.8",
+    "@mariozechner/pi-tui": ">=0.51.0"
+  },
+  "peerDependenciesMeta": {
+    "@mariozechner/pi-coding-agent": {
+      "optional": true
+    },
+    "@mariozechner/pi-ai": {
+      "optional": true
+    },
+    "@mariozechner/pi-tui": {
+      "optional": true
+    }
+  },
+  "scripts": {
+    "check": "biome check && tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check",
+    "format": "biome check --write",
+    "check:lockfile": "pnpm install --frozen-lockfile --ignore-scripts",
+    "prepare": "[ -d .git ] && husky || true",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "pnpm changeset publish"
+  },
   "devDependencies": {
-    "@aliou/biome-plugins": "^0.2.0",
+    "@aliou/biome-plugins": "^0.3.2",
     "@biomejs/biome": "^2.3.13",
     "@changesets/cli": "^2.29.4",
     "@mariozechner/pi-coding-agent": "0.52.8",
@@ -51,12 +75,5 @@
       "@mariozechner/pi-tui": "$@mariozechner/pi-coding-agent"
     }
   },
-  "peerDependenciesMeta": {
-    "@mariozechner/pi-coding-agent": {
-      "optional": true
-    },
-    "@mariozechner/pi-ai": {
-      "optional": true
-    }
-  }
+  "packageManager": "pnpm@10.26.1"
 }

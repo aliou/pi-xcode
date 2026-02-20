@@ -261,7 +261,7 @@ export function registerXcodeProjectTool(pi: ExtensionAPI) {
               : `${failedCount} check(s) failed`;
 
           detail = checks
-            .map((c) => `- ${c.ok ? "✅" : "❌"} \`${c.command}\``)
+            .map((c) => `- ${c.ok ? "[OK]" : "[FAIL]"} \`${c.command}\``)
             .join("\n");
           break;
         }
@@ -284,7 +284,7 @@ export function registerXcodeProjectTool(pi: ExtensionAPI) {
       // Append warnings when present
       const warnings = details?.warnings ?? [];
       if (warnings.length > 0) {
-        const warnText = warnings.map((w) => `> ⚠️ ${w}`).join("\n");
+        const warnText = warnings.map((w) => `> [warn] ${w}`).join("\n");
         detail = detail ? `${detail}\n\n${warnText}` : warnText;
       }
 

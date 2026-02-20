@@ -225,7 +225,7 @@ export function registerXcodeBuildTool(pi: ExtensionAPI) {
 
       // Warnings rendered as blockquote lines
       const warningsBlock = details?.warnings?.length
-        ? details.warnings.map((w) => `> ⚠️ ${w}`).join("\n")
+        ? details.warnings.map((w) => `> [warn] ${w}`).join("\n")
         : "";
 
       // Errors rendered with formatErrors

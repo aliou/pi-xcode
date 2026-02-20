@@ -564,7 +564,7 @@ export function registerXcodeSimulatorTool(pi: ExtensionAPI) {
 
       // Append warnings as blockquotes
       if (warnings && warnings.length > 0) {
-        const warningText = warnings.map((w) => `> ⚠️ ${w}`).join("\n");
+        const warningText = warnings.map((w) => `> [warn] ${w}`).join("\n");
         detail = detail ? `${detail}\n\n${warningText}` : warningText;
       }
 
