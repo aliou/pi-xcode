@@ -71,6 +71,24 @@ After install/launch issues, use these first:
 
 Interactive `xcode_ui` actions (`tap`, `type`, `swipe`, `scroll`, `clear_text`, `describe_ui`, `query_text`, `query_controls`, `wait_for`, `assert`) require `runnerCommand` when using `xcuitest` or `idb` backends.
 
+Long-press gesture support is typically implemented via `tap` with a `duration` param in the runner bridge.
+Use this pattern unless the tool schema explicitly exposes a dedicated `long_press` action.
+
+Example:
+
+```json
+{
+  "action": "tap",
+  "deviceId": "SIMULATOR_ID",
+  "params": {
+    "identifier": "browse-list-item-twitter:2023805578561060992",
+    "duration": 1.0
+  }
+}
+```
+
+If the element is not hittable, first call `describe_ui` and verify the identifier exists and `isHittable: true`.
+
 If missing, tool returns `MISSING_RUNNER`. Configure with `/xcode:setup` or pass `runnerCommand` explicitly.
 
 For macOS native app automation, use `backend="axorcist"` instead. This uses the macOS Accessibility API and does not require a runner command.
