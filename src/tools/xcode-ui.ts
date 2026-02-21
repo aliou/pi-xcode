@@ -29,6 +29,7 @@ const UI_ACTIONS = [
   "query_controls",
   "wait_for",
   "assert",
+  "chain_actions",
   "screenshot",
   "video_start",
   "video_stop",
@@ -79,10 +80,101 @@ interface ToolParams {
   params?: Record<string, unknown>;
 }
 
+interface ChainStep {
+  action: UiAction;
+  params?: Record<string, unknown>;
+}
+
+interface ChainStepResult {
+  index: number;
+  action: UiAction;
+  ok: boolean;
+  backend: UiBackendName;
+  data?: unknown;
+  artifacts?: Record<string, string>;
+  warnings?: string[];
+  errors?: XcodeToolError[];
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function parseChainSteps(raw: unknown): {
+  steps?: ChainStep[];
+  error?: XcodeToolError;
+} {
+  if (!Array.isArray(raw) || raw.length === 0) {
+    return {
+      error: err(
+        "chain_actions requires non-empty params.steps",
+        "MISSING_PARAMS",
+        "pass params.steps as an array of { action, params? }",
+      ),
+    };
+  }
+
+  const steps: ChainStep[] = [];
+
+  for (let i = 0; i < raw.length; i++) {
+    const step = raw[i];
+    if (!isRecord(step)) {
+      return {
+        error: err(
+          `chain_actions step ${i + 1} must be an object`,
+          "INVALID_PARAM",
+        ),
+      };
+    }
+
+    const action = step.action;
+    if (typeof action !== "string") {
+      return {
+        error: err(
+          `chain_actions step ${i + 1} is missing string action`,
+          "INVALID_PARAM",
+        ),
+      };
+    }
+
+    const actionError = validateAction("xcode_ui", action, UI_ACTIONS);
+    if (actionError) {
+      return { error: actionError };
+    }
+
+    if (action === "chain_actions") {
+      return {
+        error: err(
+          "chain_actions does not support nested chain_actions steps",
+          "INVALID_PARAM",
+        ),
+      };
+    }
+
+    const params = step.params;
+    if (params !== undefined && !isRecord(params)) {
+      return {
+        error: err(
+          `chain_actions step ${i + 1} params must be an object`,
+          "INVALID_PARAM",
+        ),
+      };
+    }
+
+    steps.push({
+      action: action as UiAction,
+      params: params as Record<string, unknown> | undefined,
+    });
+  }
+
+  return { steps };
+}
+
 function buildUiSummary(
   action: UiAction,
   result: {
     ok: boolean;
+    data?: unknown;
     artifacts?: Record<string, string>;
     errors?: XcodeToolError[];
   },
@@ -90,6 +182,19 @@ function buildUiSummary(
   if (!result.ok) {
     const code = result.errors?.[0]?.code;
     return code ? `${action} failed (${code})` : `${action} failed`;
+  }
+
+  if (action === "chain_actions") {
+    const data = result.data as
+      | { executed?: number; total?: number; stopOnError?: boolean }
+      | undefined;
+    const executed = typeof data?.executed === "number" ? data.executed : 0;
+    const total = typeof data?.total === "number" ? data.total : executed;
+    const mode =
+      data?.stopOnError === false ? "continue-on-error" : "stop-on-error";
+    return result.ok
+      ? `chain_actions ok: ${executed}/${total} (${mode})`
+      : `chain_actions failed: ${executed}/${total} (${mode})`;
   }
 
   if (action === "screenshot") {
@@ -129,7 +234,7 @@ export function registerXcodeUiTool(pi: ExtensionAPI) {
     name: "xcode_ui",
     label: "Xcode UI",
     description:
-      "UI automation + observability for simulator workflows. default backend: xcuitest. supports backends: xcuitest, idb.",
+      "UI automation + observability for simulator workflows. includes chain_actions for multi-step flows. default backend: xcuitest. supports backends: xcuitest, idb.",
     parameters: Params,
 
     async execute(_toolCallId, rawParams, signal) {
@@ -153,6 +258,114 @@ export function registerXcodeUiTool(pi: ExtensionAPI) {
         params.runnerCommand,
         configLoader.getConfig().uiRunnerCommands,
       );
+
+      if (params.action === "chain_actions") {
+        const chain = parseChainSteps(params.params?.steps);
+        if (chain.error || !chain.steps) {
+          return formatResult(params.action, "chain_actions failed", {
+            ok: false,
+            action: params.action,
+            backend: backend === "auto" ? "xcuitest" : backend,
+            errors: [chain.error ?? err("invalid chain_actions payload")],
+          });
+        }
+
+        const stopOnError = params.params?.stopOnError !== false;
+        const needsRunner =
+          backend !== "axorcist" &&
+          !runnerCommand &&
+          chain.steps.some((step) => INTERACTIVE_ACTIONS.has(step.action));
+        if (needsRunner) {
+          return formatResult(params.action, "chain_actions failed", {
+            ok: false,
+            action: params.action,
+            backend: backend === "auto" ? "xcuitest" : backend,
+            errors: [
+              err(
+                "interactive xcode_ui action requires runnerCommand",
+                "MISSING_RUNNER",
+                "Configure with /xcode:setup or pass runnerCommand. For macOS native apps, use backend='axorcist'. Read skills/pi-xcode/references/ui-test-harness.md for simulator harness setup.",
+              ),
+            ],
+          });
+        }
+
+        const steps: ChainStepResult[] = [];
+        const chainArtifacts: Record<string, string> = {};
+        let ok = true;
+
+        for (let i = 0; i < chain.steps.length; i++) {
+          const step = chain.steps[i];
+          const stepResult = await executeUiBackendAction(
+            pi,
+            {
+              action: step.action,
+              backendMode: backend,
+              deviceId: params.deviceId,
+              application: params.application,
+              runnerCommand,
+              params: step.params,
+            },
+            signal,
+          );
+
+          steps.push({
+            index: i + 1,
+            action: step.action,
+            ok: stepResult.ok,
+            backend: stepResult.backend,
+            data: stepResult.data,
+            artifacts: stepResult.artifacts,
+            warnings: stepResult.warnings,
+            errors: stepResult.errors,
+          });
+
+          if (stepResult.artifacts) {
+            for (const [key, value] of Object.entries(stepResult.artifacts)) {
+              chainArtifacts[`step_${i + 1}_${key}`] = value;
+            }
+          }
+
+          if (!stepResult.ok) {
+            ok = false;
+            if (stopOnError) break;
+          }
+        }
+
+        const result = {
+          ok,
+          backend: (backend === "auto" ? "xcuitest" : backend) as UiBackendName,
+          data: {
+            total: chain.steps.length,
+            executed: steps.length,
+            stopOnError,
+            steps,
+          },
+          artifacts:
+            Object.keys(chainArtifacts).length > 0 ? chainArtifacts : undefined,
+          errors: ok
+            ? undefined
+            : [
+                err(
+                  `chain_actions failed at step ${steps.find((s) => !s.ok)?.index ?? "unknown"}`,
+                  "CHAIN_STEP_FAILED",
+                ),
+              ],
+        };
+
+        return formatResult(
+          params.action,
+          buildUiSummary(params.action, result),
+          {
+            ok: result.ok,
+            action: params.action,
+            backend: result.backend,
+            data: result.data,
+            artifacts: result.artifacts,
+            errors: result.errors,
+          },
+        );
+      }
 
       if (
         INTERACTIVE_ACTIONS.has(params.action) &&
@@ -356,6 +569,18 @@ export function registerXcodeUiTool(pi: ExtensionAPI) {
             : ok
               ? "clear_text ok"
               : "clear_text failed";
+          expanded = buildDetail([jsonBlock(data)]);
+          break;
+        }
+
+        // ── chain_actions ─────────────────────────────────────────────────
+        case "chain_actions": {
+          const total = typeof data?.total === "number" ? data.total : 0;
+          const executed =
+            typeof data?.executed === "number" ? data.executed : 0;
+          collapsed = ok
+            ? `chain_actions: ${executed}/${total} steps`
+            : `chain_actions failed: ${executed}/${total} steps`;
           expanded = buildDetail([jsonBlock(data)]);
           break;
         }

@@ -6,7 +6,7 @@ Use xcode_* tools, not direct bash for xcodebuild/xcrun/xcresulttool.
 - xcode_project: discover_projects, list_schemes, show_build_settings, get_bundle_id, doctor
 - xcode_build: build, test, clean, resolve_app_path, parse_result_bundle, report
 - xcode_simulator: simulator lifecycle/app runtime/env/container actions, plus status/list_apps/app_info/read_defaults/write_defaults
-- xcode_ui: UI interaction, waits/asserts, artifacts/logs/crash/report
+- xcode_ui: UI interaction, waits/asserts, chain_actions, artifacts/logs/crash/report
 
 ## Required argument names (strict)
 
@@ -43,6 +43,16 @@ xcode_build { action: "build", scheme, workspacePath, install: true, launch: tru
 - launch: after successful install, launches the app (resolves bundleId automatically, or pass bundleId)
 - Both default to false. Only supported for platform=simulator.
 - Prefer this over separate build + simulator install + simulator launch calls when iterating on UI changes.
+
+## xcode_ui chain_actions
+
+Use one call for multi-step flows:
+
+xcode_ui { action: "chain_actions", deviceId, runnerCommand, params: { stopOnError: true, steps: [ { action: "tap", params: { identifier: "edit-item-title" } }, { action: "clear_text", params: { identifier: "edit-item-title" } }, { action: "type", params: { text: "New title" } }, { action: "tap", params: { element: "Button", label: "Done" } } ] } }
+
+- steps is required, non-empty.
+- nested chain_actions is not supported.
+- each step uses existing xcode_ui action semantics.
 
 ## UI backend requirements
 

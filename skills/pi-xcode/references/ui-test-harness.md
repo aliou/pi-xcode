@@ -174,6 +174,25 @@ Example tool call:
 }
 ```
 
+Chain multiple actions in one `xcode_ui` call (no harness changes required):
+
+```json
+{
+  "action": "chain_actions",
+  "deviceId": "<simulator-udid>",
+  "runnerCommand": "bash tools/ui-automation-runner.sh",
+  "params": {
+    "stopOnError": true,
+    "steps": [
+      { "action": "tap", "params": { "identifier": "title-field" } },
+      { "action": "clear_text", "params": { "identifier": "title-field" } },
+      { "action": "type", "params": { "text": "Updated title" } },
+      { "action": "tap", "params": { "label": "Done", "element": "Button" } }
+    ]
+  }
+}
+```
+
 The extension passes a payload argument to `runnerCommand`.
 Your script must accept that argument and emit structured JSON.
 
