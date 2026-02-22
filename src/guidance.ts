@@ -50,6 +50,10 @@ Use one call for multi-step flows:
 
 xcode_ui { action: "chain_actions", deviceId, runnerCommand, params: { stopOnError: true, steps: [ { action: "tap", params: { identifier: "edit-item-title" } }, { action: "clear_text", params: { identifier: "edit-item-title" } }, { action: "type", params: { text: "New title" } }, { action: "tap", params: { element: "Button", label: "Done" } } ] } }
 
+Common workflow (tap then auto-describe in same call):
+
+xcode_ui { action: "chain_actions", backend: "auto", deviceId, runnerCommand, params: { stopOnError: true, steps: [ { action: "tap", params: { identifier: "my-button" } }, { action: "describe_ui", params: {} } ] } }
+
 - steps is required, non-empty.
 - nested chain_actions is not supported.
 - each step uses existing xcode_ui action semantics.
